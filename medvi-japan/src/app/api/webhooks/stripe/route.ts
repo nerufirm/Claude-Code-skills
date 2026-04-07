@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { sendPrescriptionNotification } from "@/lib/line";
 
 function getWebhookSecret() {
   return process.env.STRIPE_WEBHOOK_SECRET!;
@@ -62,6 +63,26 @@ export async function POST(request: NextRequest) {
 
         if (error) {
           console.error("Failed to update prescription:", error);
+        }
+
+        // Send LINE notification to the patient
+        try {
+          const { data: patient } = await supabase
+            .from("users")
+            .select("line_id")
+            .eq("id", metadata.patientId)
+            .single();
+
+          if (patient?.line_id) {
+            const mypageUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/mypage`;
+            await sendPrescriptionNotification(
+              patient.line_id,
+              metadata.medicationName ?? "お薬",
+              mypageUrl
+            );
+          }
+        } catch (notificationError) {
+          console.error("Failed to send LINE notification:", notificationError);
         }
 
         break;
