@@ -44,6 +44,12 @@ export default function RootLayout({
               >
                 マイページ
               </Link>
+              <Link
+                href="/login"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ログイン
+              </Link>
             </nav>
           </div>
         </header>

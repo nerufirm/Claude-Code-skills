@@ -55,6 +55,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Allow auth-related API endpoints without authentication
+  if (pathname.startsWith("/api/auth/")) {
+    return supabaseResponse;
+  }
+
   // Protect /api/* routes - return 401 for unauthenticated requests
   if (pathname.startsWith("/api/") && !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

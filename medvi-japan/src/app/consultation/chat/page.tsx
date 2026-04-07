@@ -4,8 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, CheckCircle } from "lucide-react";
+import { Send, Loader2, CheckCircle, ShieldCheck, ChevronDown } from "lucide-react";
 import { ChatMessage } from "@/types/database";
+import { IdentityUpload } from "@/components/identity-upload";
 
 const INITIAL_MESSAGE: ChatMessage = {
   role: "assistant",
@@ -22,6 +23,9 @@ export default function ConsultationChatPage() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [showIdentityUpload, setShowIdentityUpload] = useState(false);
+  const [identityUploaded, setIdentityUploaded] = useState(false);
+  const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
 
   // Generate a consultation ID for this session
   const consultationIdRef = useRef(crypto.randomUUID());
@@ -78,6 +82,11 @@ export default function ConsultationChatPage() {
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
+
+      // Show identity upload prompt after the first user message
+      if (!identityUploaded && !showIdentityPrompt && userMessageCount === 0) {
+        setShowIdentityPrompt(true);
+      }
     }
   };
 
@@ -202,6 +211,62 @@ export default function ConsultationChatPage() {
           )}
         </div>
       </ScrollArea>
+
+      {/* Identity Upload Section */}
+      <div className="border-t bg-white">
+        {/* Subtle prompt after first message */}
+        {showIdentityPrompt && !identityUploaded && !showIdentityUpload && (
+          <div className="px-3 pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowIdentityUpload(true);
+                setShowIdentityPrompt(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-left text-xs text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <ShieldCheck className="size-4 shrink-0" />
+              <span className="flex-1">
+                本人確認書類をアップロードすると、診察がスムーズに進みます
+              </span>
+              <ChevronDown className="size-3.5 shrink-0" />
+            </button>
+          </div>
+        )}
+
+        {/* Collapsible toggle button */}
+        {!showIdentityPrompt && (
+          <div className="px-3 pt-3">
+            <button
+              type="button"
+              onClick={() => setShowIdentityUpload(!showIdentityUpload)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ShieldCheck className="size-3.5" />
+              <span>本人確認書類</span>
+              {identityUploaded && (
+                <span className="text-green-600 font-medium">（アップロード済み）</span>
+              )}
+              <ChevronDown
+                className={`size-3 transition-transform ${showIdentityUpload ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+        )}
+
+        {/* Expanded upload area */}
+        {showIdentityUpload && (
+          <div className="px-3 pt-2 pb-1">
+            <IdentityUpload
+              existingUrl={undefined}
+              onUploadComplete={(url) => {
+                setIdentityUploaded(true);
+                setShowIdentityUpload(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Input */}
       <div className="border-t bg-white p-3">

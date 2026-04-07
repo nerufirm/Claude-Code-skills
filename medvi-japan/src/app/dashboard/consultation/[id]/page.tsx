@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import VideoCall from "@/components/video-call";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -335,6 +336,9 @@ export default function ConsultationDetailPage({
   const consultation = mockConsultations[id];
   const [notes, setNotes] = useState(consultation?.notes ?? "");
   const [callStatus, setCallStatus] = useState<"待機中" | "通話中" | "終了">("待機中");
+  const [videoRoomUrl, setVideoRoomUrl] = useState<string | null>(null);
+  const [videoToken, setVideoToken] = useState<string | null>(null);
+  const [isStartingCall, setIsStartingCall] = useState(false);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [selectedMedication, setSelectedMedication] = useState<string>("");
   const [dosage, setDosage] = useState("");
@@ -387,9 +391,35 @@ export default function ConsultationDetailPage({
     }
   }
 
-  function handleStartCall() {
-    setCallStatus("通話中");
+  async function handleStartCall() {
+    setIsStartingCall(true);
+    try {
+      const response = await fetch("/api/video/room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consultationId: consultation.id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "ビデオルームの作成に失敗しました。");
+      }
+
+      setVideoRoomUrl(data.roomUrl);
+      setVideoToken(data.token);
+      setCallStatus("通話中");
+    } catch (error) {
+      console.error("Failed to start video call:", error);
+    } finally {
+      setIsStartingCall(false);
+    }
   }
+
+  const handleVideoLeave = useCallback(() => {
+    setVideoRoomUrl(null);
+    setVideoToken(null);
+    setCallStatus("待機中");
+  }, []);
 
   function handleCompleteConsultation() {
     router.push("/dashboard");
@@ -608,35 +638,46 @@ export default function ConsultationDetailPage({
       {/* RIGHT PANEL - Actions */}
       <div className="flex-[2] space-y-6">
         {/* Video Call */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">ビデオ通話</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div
-                className={`h-2.5 w-2.5 rounded-full ${
-                  callStatus === "待機中"
-                    ? "bg-yellow-400"
-                    : callStatus === "通話中"
-                      ? "bg-green-500 animate-pulse"
-                      : "bg-gray-400"
-                }`}
-              />
-              <span className="text-sm font-medium">{callStatus}</span>
-            </div>
-            <Button
-              onClick={handleStartCall}
-              disabled={callStatus === "通話中"}
-              className="w-full bg-green-600 text-white hover:bg-green-700"
-              size="lg"
-            >
-              {callStatus === "通話中"
-                ? "通話中..."
-                : "ビデオ通話を開始"}
-            </Button>
-          </CardContent>
-        </Card>
+        {videoRoomUrl && videoToken ? (
+          <VideoCall
+            roomUrl={videoRoomUrl}
+            token={videoToken}
+            onLeave={handleVideoLeave}
+            userName="医師"
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">ビデオ通話</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    callStatus === "待機中"
+                      ? "bg-yellow-400"
+                      : callStatus === "通話中"
+                        ? "bg-green-500 animate-pulse"
+                        : "bg-gray-400"
+                  }`}
+                />
+                <span className="text-sm font-medium">{callStatus}</span>
+              </div>
+              <Button
+                onClick={handleStartCall}
+                disabled={callStatus === "通話中" || isStartingCall}
+                className="w-full bg-green-600 text-white hover:bg-green-700"
+                size="lg"
+              >
+                {isStartingCall
+                  ? "接続中..."
+                  : callStatus === "通話中"
+                    ? "通話中..."
+                    : "ビデオ通話を開始"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Separator />
 
