@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GRADIUS HOMAGE - 横スクロールSTG</title>
+<style>
+  html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden;}
+  body{display:flex;align-items:center;justify-content:center;}
+  canvas{
+    image-rendering:pixelated;
+    background:#000;
+    max-width:100vw;max-height:100vh;
+    aspect-ratio:4/3;
+    touch-action:none;
+  }
+  /* ===== タッチ操作UI（ストリートファイター・モバイル風 / タッチ端末のみ表示） ===== */
+  #touch-ui{
+    display:none;
+    position:fixed;inset:0;z-index:10;
+    pointer-events:none;
+    touch-action:none;user-select:none;-webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    font-family:"Arial Black","Helvetica Neue",Arial,sans-serif;
+  }
+  #touch-ui *{
+    touch-action:none;user-select:none;-webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  @media (pointer: coarse){
+    #touch-ui{display:block;}
+  }
+  /* ---- バーチャルスティック（左下） ---- */
+  #stick{
+    position:absolute;
+    left:calc(18px + env(safe-area-inset-left));
+    bottom:calc(18px + env(safe-area-inset-bottom));
+    width:min(46vmin,190px);height:min(46vmin,190px);
+    border-radius:50%;
+    background:radial-gradient(circle at 50% 45%, rgba(120,130,150,0.18), rgba(20,24,34,0.38) 70%);
+    border:2px solid rgba(255,255,255,0.22);
+    box-shadow:inset 0 0 24px rgba(0,0,0,0.5);
+    pointer-events:auto;
+  }
+  #stick-knob{
+    position:absolute;
+    left:30%;top:30%;
+    width:40%;height:40%;
+    border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, rgba(255,255,255,0.5), rgba(150,160,180,0.28) 60%, rgba(90,100,120,0.3));
+    border:2px solid rgba(255,255,255,0.45);
+    box-shadow:0 0 14px rgba(160,190,255,0.25), inset 0 -4px 8px rgba(0,0,0,0.3);
+    will-change:transform;
+  }
+  /* ---- アーケードボタン（右下・SF風カラーリング） ---- */
+  .abtn{
+    position:absolute;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:900;letter-spacing:1px;
+    padding:0;outline:none;
+    pointer-events:auto;
+    transition:transform 0.06s;
+  }
+  .abtn.on{transform:scale(0.9);}
+  /* SHOT: 赤（SFのSPボタン風） */
+  #btn-shot{
+    right:calc(20px + env(safe-area-inset-right));
+    bottom:calc(20px + env(safe-area-inset-bottom));
+    width:min(24vmin,112px);height:min(24vmin,112px);
+    font-size:15px;
+    color:#ff6b5e;
+    background:radial-gradient(circle at 50% 40%, rgba(255,70,50,0.3), rgba(120,10,5,0.35) 75%);
+    border:3px solid rgba(255,80,60,0.85);
+    box-shadow:0 0 16px rgba(255,60,40,0.45), inset 0 0 18px rgba(255,60,40,0.25);
+    text-shadow:0 0 8px rgba(255,80,60,0.8);
+  }
+  #btn-shot.on{
+    background:radial-gradient(circle at 50% 40%, rgba(255,110,90,0.55), rgba(170,20,10,0.5) 75%);
+    box-shadow:0 0 26px rgba(255,80,50,0.8), inset 0 0 22px rgba(255,90,60,0.45);
+  }
+  /* POW: 黄（SFの強攻撃ボタン風） */
+  #btn-pow{
+    right:calc(118px + env(safe-area-inset-right));
+    bottom:calc(96px + env(safe-area-inset-bottom));
+    width:min(17vmin,80px);height:min(17vmin,80px);
+    font-size:12px;
+    color:#ffd54a;
+    background:radial-gradient(circle at 50% 40%, rgba(255,200,40,0.28), rgba(120,80,0,0.35) 75%);
+    border:3px solid rgba(255,205,60,0.85);
+    box-shadow:0 0 14px rgba(255,200,40,0.4), inset 0 0 14px rgba(255,200,40,0.22);
+    text-shadow:0 0 8px rgba(255,210,80,0.8);
+  }
+  #btn-pow.on{
+    background:radial-gradient(circle at 50% 40%, rgba(255,225,90,0.5), rgba(160,110,0,0.5) 75%);
+    box-shadow:0 0 24px rgba(255,210,60,0.75), inset 0 0 18px rgba(255,215,90,0.4);
+  }
+  /* ポーズ: 青（小・右上） */
+  #btn-pause{
+    position:absolute;
+    right:calc(12px + env(safe-area-inset-right));
+    top:calc(12px + env(safe-area-inset-top));
+    width:44px;height:44px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:14px;
+    color:#6ec6ff;
+    background:radial-gradient(circle at 50% 40%, rgba(60,150,255,0.25), rgba(10,40,90,0.35) 75%);
+    border:2px solid rgba(100,180,255,0.7);
+    box-shadow:0 0 10px rgba(80,160,255,0.35);
+    text-shadow:0 0 6px rgba(110,200,255,0.8);
+    padding:0;outline:none;
+    pointer-events:auto;
+  }
+  #btn-pause.on{transform:scale(0.9);}
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="600"></canvas>
+<div id="touch-ui">
+  <div id="stick"><div id="stick-knob"></div></div>
+  <button class="abtn" id="btn-pow">POW</button>
+  <button class="abtn" id="btn-shot">SHOT</button>
+  <button id="btn-pause">II</button>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
